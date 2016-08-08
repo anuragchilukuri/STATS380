@@ -1,0 +1,660 @@
+---
+title: "<center> Exercise_1 </center>"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed(1)
+```
+
+##Probability Practice : 
+###Part A : 
+
+>Visitors to your website are asked to answer a single survey question before they get access to the content on the page. Among all of the users, there are two categories: Random Clicker (RC), and Truthful Clicker (TC). There are two possible answers to the survey: yes and no. Random clickers would click either one with equal probability. You are also giving the >information that the expected fraction of random clickers is 0.3.   
+    
+After a trial period, you get the following survey results: 65% said Yes and 35% said No.   
+   
+What fraction of people who are truthful clickers answered yes? 
+
+Probability of yes for a random clicker. 
+P(Y/R) = 0.5  
+
+Fraction of random clicker 
+P(R) = 0.3    
+
+Fraction of truthful clicker
+P(T) = 0.7   
+
+Fraction of yes
+P(Y) = 0.65 
+
+Fraction of no
+P(N) = 0.35   
+
+Fraction of yes explained as a sum of conditional probability
+P(Y) = P(Y/R)xP(R) + P(Y/T)xP(T)   
+
+0.65 = 0.5x0.3 + P(Y/T)x0.7  
+
+Fraction of truthful clickers that answered yes
+P(Y/T) = 0.714       
+
+### Part B :
+
+>Imagine a medical test for a disease with the following two attributes:   
+
+>The sensitivity is about 0.993. That is, if someone has the disease, there is a probability of 0.993 that they will test positive.
+The specificity is about 0.9999. This means that if someone doesn't have the disease, there is probability of 0.9999 that they will test negative.
+In the general population, incidence of the disease is reasonably rare: about 0.0025% of all people have it (or 0.000025 as a decimal probability).    
+
+>Suppose someone tests positive. What is the probability that they have the disease? In light of this calculation, do you envision any problems in implementing a universal testing policy for the disease?
+
+
+P(D) = Probability of having the disease 
+
+P(T) = Probability of testing positive. 
+
+P(N) = Probability of testing negative
+
+P(ND) = Probability of not having disease
+
+P(T/D) = Probability of testing positive given that they have the disease
+
+P(N/ND) = Probability of testing negative given that they do not have the disease
+
+P(D) = 0.000025
+
+P(T/D) = 0.993
+
+P(N/ND) = 0.9999
+
+We use Bayes theorem to calculate the probability, P(D/T) which is probability of having the disease given that the test is positive. 
+
+P(D/T) = P(T/D)xP(D)/ P(T)
+
+P(T) = P(T/D)xP(D) + (1-P(N/ND))x(1-P(D))
+
+P(D/T) = 0.993 x 0.000025/ ( 0.993 x 0.000025 + (1-0.9999) x (1 - 0.000025))
+
+P(D/T) = 0.1988
+
+If a universal testing policy is implemented, then the chance that they actually have the disease when they are tested positive is 0.198 which is a low value. The probability that the person does not have the disease is very high ( 1 - 0.000025 ). Because of this, if a user tests positive, then it is more likely that they do not have the disease than they do. 
+
+## Green buildings
+```{r }
+library(ggplot2)
+library(lattice)
+library(mosaic)
+library(RCurl)
+set.seed(100)
+rm(list=ls()) #Clear Workspace
+temp = getURL("https://raw.githubusercontent.com/matt-staton/stat_380/master/greenbuildings.csv")
+greenbuildings = read.csv(text = temp, header=T)
+gbuild = greenbuildings
+
+attach(gbuild)
+gbuild$Rent_Diff = Rent - cluster_rent
+names(gbuild)
+summary(gbuild)
+
+lm.fit = lm(Rent ~., data = gbuild)
+summary(lm.fit)
+confint(lm.fit)
+```
+   
+We can see here controlling for all avaialbe variables that the most significant predictors of price are PropertyID, cluster(ie:location), size, employment growth, cluster Rent, stories, leasing rate, hd-total-07 (total heating days in 2007), precipitation, Gas costs, age, class A, class B, net, amenities and electricity costs. 
+
+These predictors seem intuitive with the exception of green_rating having  almost no predictive power. The green rating has a 95% CI of -6.827645e+00  8.221535e+00, which includes 0, leaving us to accept the null hypothesis that green rating is not statistically significant.
+Furthermore, I was very surprised to see renovation having very little predictive power, with a 95% confidence interval of -6.493550e-01  3.644221e-01. 
+
+```{r } 
+names(lm.fit)
+hist(gbuild$leasing_rate,plot=TRUE)
+```
+   
+In order to do an apples to apples comparison of the previous analysis I will re-run the model with leasing rates >= 10%. Let's also plot rent as function of leasing rate to understand the effect removing the bottom 10 percentil will have.   
+```{r }
+gbuild_sub = subset(gbuild, gbuild$leasing_rate >= 10)  #Remove lease rates <10%
+
+hist(gbuild_sub$leasing_rate,plot=TRUE)
+#Rent positively correlated with leasing rate
+plot(Rent~leasing_rate,data = gbuild_sub, col="blue",pch=16)
+#Rent positively correlated with electricity costs
+plot(Rent~Electricity_Costs,data = gbuild_sub, col="blue",pch=16)
+
+abline(lm(Rent~leasing_rate,data = gbuild_sub),col="red")
+
+gbuild_sub$util_index = gbuild_sub$hd_total07*gbuild_sub$Gas_Costs +
+    gbuild_sub$cd_total_07 * gbuild_sub$Electricity_Costs
+lm.fit2 = lm(Rent ~.+util_index*class_a+cd_total_07*class_a+green_rating*class_a+empl_gr*class_a+empl_gr*green_rating, data = gbuild_sub)
+summary(lm.fit2)
+confint(lm.fit2)
+```
+We can see leasing rate has a positive effect on rent prices, we won't do anything with that for now, but we may need to control for that in the future.   
+   
+Again we see none of the green IV's have any reliable predictave power as it relates to price.
+The most meaningful predictors remain to be Size,Employment growth, Class A, Class B, Net, HD-total07, Gas-Costs, Electricity-Costs, and Cluster_Rent (IE: Neighboorhood average rent)     
+     
+The analysis doesn't account for lurking variables by just looking at median rent. It assumes the higher prices of green buildings are due to them being green, when we can clearly see from the regression model, they are not. This is because the regression model shows the marginal effect of each variable, and allows one to control for other factors. Furthermore, in order to reliably predict the price of the building, the developer should input the values of the most important predictors above to estimate. Using the median however was a good idea, because it is more robust to outliers.    
+
+Lets remove all statistically insignificant variables using step-wise regression;acknowledging that the coefficients may change slightly   
+```{r,message=FALSE }
+lm.fit3 = step(lm.fit2 , scope=formula(lm.fit2), direction="back", k=log(length(gbuild_sub)))
+summary(lm.fit3)
+confint(lm.fit3)
+```   
+Surprisingly LEED remained in the model, however we fail to reject the null hypothesis that it is significant at the 95% level.    
+
+First we will begin by breaking the important continuous variables into manageable buckets.
+This will also serve us well to see the distribution of buildings across different ranges of values and setup our cross tab tables coming up. We will also limit the data to cities with positive employment growth, since Austin has one of the best economies in the country.
+```{r }
+gbuild_sub$sizeCategory = cut(gbuild_sub$size, breaks = c(rep(0:20)*200000))
+gbuild_sub$storiesCategory = cut(gbuild_sub$stories, breaks = c(rep(0:12)*10))
+gbuild_sub$empl_grCategory = cut(gbuild_sub$empl_gr, breaks = c(rep(0:6)))
+gbuild_sub$ageCategory = cut(gbuild_sub$age, breaks = c(rep(0:10)*20))
+gbuild_sub$Electricity_CostsCategory = cut(gbuild_sub$Electricity_Costs,
+                                           breaks = c(seq(0.00,0.07, by=0.01)))
+gbuild_sub$Gas_CostsCategory = cut(gbuild_sub$Gas_Costs,
+                                           breaks = c(seq(0.00,0.03, by=0.005)))
+gbuild_sub$total_dd_07Category = cut(gbuild_sub$total_dd_07,
+                                           breaks = c(seq(0.00,9000, by=2000)))
+gbuild_sub$cd_total_07Category = cut(gbuild_sub$cd_total_07,
+                                           breaks = c(seq(0.00,6000, by=600)))
+attach(gbuild_sub)
+hist(gbuild_sub$size, breaks=75) #Good dispersion in target range
+hist(gbuild_sub$stories)  #Good dispersion in target range
+```
+There appears to be a good distribution of buildings over the top predictors, so I'm not concerned about extrapolating outside of the observed ranges.    
+   
+Next I inspect the theory that lower utility costs are the driver of higher rent prices in green buildings. In order to do this I create a feature called util_index, which is the sum of the products of gas costs and heating days and electric costs and cooling days. This feauture will allow us to measure the expense of HVAC in a single variable.    
+
+We begin by examing rents for green and non-green buildings as two different series across the full range of util_index:
+```{r}
+gbuild_sub$util_index = gbuild_sub$hd_total07*gbuild_sub$Gas_Costs +
+    gbuild_sub$cd_total_07 * gbuild_sub$Electricity_Costs
+#Bucket util_index
+gbuild_sub$util_indexCategory = cut(gbuild_sub$util_index,
+                                           breaks = c(seq(0.00,200, by=25)))
+#Util index negatively correlated with rent; Higher utilities = lower rent
+plot(Rent~util_index,data = gbuild_sub, col="blue",pch=16)
+#Normalize util_index in case we need it
+gbuild_sub$util_index_norm = gbuild_sub$util_index/mean(gbuild_sub$util_index)
+
+summary(gbuild_sub)
+
+g_green = subset(gbuild_sub, green_rating==1)
+g_green = g_green[complete.cases(g_green),]
+g_ngreen = subset(gbuild_sub, green_rating==0)
+g_ngreen = g_ngreen[complete.cases(g_green),]
+
+plot(Rent~util_index,data = g_ngreen, col="blue",pch=16)
+points(Rent~util_index,data = g_green, col="red",pch=4)
+```
+Well there isn't much to take from this graph. Let's try to do the same thing across total-dd_07-days: 
+```{r}
+plot(Rent~total_dd_07,data = g_ngreen, col="blue",pch=16)
+points(Rent~total_dd_07,data = g_green, col="red",pch=4)
+
+plot(Rent~cd_total_07,data = g_ngreen, col="blue",pch=16)
+points(Rent~cd_total_07,data = g_green, col="red",pch=4)
+```
+It appears green buildings are highly concentrated in milder climates. Lets look at a cross tab of green building frequencies by util_index and classs.
+```{r}
+freq =xtabs(~green_rating+class_a+util_indexCategory, data = gbuild_sub)
+freq
+```
+The table above seems to indicate green buildings are highly concentrated in class a buildings. That would be a good reason why they appear to rent for more money. The table shows 3 splits of the util_index: 0-75,75-150,150-225  
+    
+For those respective bins, 255 of the 332 green buildings or 76.8%, are found in class a buildings. 284/339 or 83.8% of green buildings are class a in the second bin. And 5/9 of the green buildings in the last bin are class A. It seems we've found something here. What if the higher rent prices for green buildings were a reflection of the class of the building instead of the green rating?
+
+Lets dig deeper, and look at a few boxplots of rent by green rating for only class A buildings & non-class A buildings
+```{r}
+gbuild_sub_A = subset(gbuild_sub, class_a == 1)
+gbuild_sub_NotA = subset(gbuild_sub, class_a == 0)
+boxplot(Rent ~ green_rating+util_indexCategory, data = gbuild_sub_A,
+        xlab= "Green Rating followed by Util_Index",
+        ylab="Rent",notch=TRUE,ylim=c(5,80),cex.axis=.7)
+        title("Class A Rent Prices by (Green Rating and Util Index)")
+        
+boxplot(Rent ~ green_rating+cd_total_07Category, data = gbuild_sub_A,
+        xlab= "Green Rating followed by Util_Index",
+        ylab="Rent",notch=TRUE,ylim=c(5,80),cex.axis=.8)
+        title("Class A Rent Prices by (Green Rating and Util Index)")
+#boxplot(Rent ~ green_rating+total_dd_07Category, data = gbuild_sub_A, xlab= "Green Rating followed by total degree days", ylab="Rent",notch=TRUE,ylim=c(5,80),cex.axis=.8)
+boxplot(Rent ~ green_rating+util_indexCategory, 
+        data = gbuild_sub_NotA, xlab= "Green Rating followed by Util_Index",ylab="Rent",
+        notch=FALSE,ylim=c(5,80),cex.axis=.8)
+        title("Non-Class A Rent Prices by (Green Rating and Util Index)")
+
+g_control1 = subset(gbuild_sub_A, net==1 & leasing_rate <= 80 & empl_gr > 0)
+freq =xtabs(~green_rating+empl_grCategory+util_indexCategory, data = g_control1)
+freq
+rent_sum =xtabs(Rent~green_rating+empl_grCategory+util_indexCategory, data = g_control1)
+avg_rent = rent_sum/freq
+avg_rent
+        
+```
+At this point we can see green buildings are highly correlated and that some green buildings in certain utility_index bins do rent for a premium. The last table is particularly interesting. Here we can see that green buildings generally only sell for a premium in modest to high growth cities.
+
+Net pricing wasn't indicated as a strong predictor but let's do the same excercise controlling for non-net leases and some other features correlated with price.   
+```{r}
+#Control for important lurking variables
+g_control1 = subset(gbuild_sub_A, net==1 & leasing_rate <= 80 & empl_gr > 0)
+g_control2 = subset(gbuild_sub_A, net==1 & leasing_rate <= 80 & empl_gr <= 0)
+
+plot(gbuild$empl_gr)
+boxplot(Rent ~ green_rating+util_indexCategory, data = g_control1,
+        xlab= "Green Rating followed by Util_Index",
+        ylab="Rent",notch=TRUE,ylim=c(5,80),cex.axis=.8)
+        title("Class A Rent Prices by (Green Rating and Util Index)")
+boxplot(Rent ~ green_rating+cd_total_07Category, data = g_control1,
+        xlab= "Green Rating followed by Util_Index",
+        ylab="Rent",ylim=c(5,40),cex.axis=.8)
+        title("Class A Rent Prices by (Green Rating and Util Index)")
+boxplot(Rent ~ green_rating+empl_grCategory, data = g_control1,
+        xlab= "Green Rating followed by Util_Index",
+        ylab="Rent",ylim=c(5,40),cex.axis=.8)
+        title("Class A Rent Prices by (Green Rating and Util Index)")
+plot(Rent_Diff~util_index,data = g_ngreen, col="blue",pch=16)
+points(Rent_Diff~util_index,data = g_green, col="red",pch=4) 
+```
+   
+```{r}
+freq =xtabs(~green_rating+class_a+util_indexCategory, data = gbuild_sub)
+rent_sum =xtabs(Rent~green_rating+class_a+util_indexCategory, data = gbuild_sub)
+avg_rent = rent_sum/freq
+avg_rent
+```
+
+
+```{r}
+gbuild_notnet = subset(gbuild_sub,net==0)
+gbuild_net = subset(gbuild_sub,net==1)
+```
+```{r}
+g_cntrl_notnet = subset(gbuild_notnet, class_a == 1 | class_b == 1 & age <= 30 &
+                        (empl_gr >= 1 & empl_gr <= 3) &
+                        (stories >= 5 & stories <= 25) &
+                        (size <= 300000 & size >= 200000))
+```
+```{r}
+freq =xtabs(~green_rating+empl_grCategory+class_a, data = gbuild_sub)
+freq
+rent_sum =xtabs(Rent~green_rating+empl_grCategory+class_a, data = gbuild_sub)
+avg_rent = rent_sum/freq
+avg_rent
+```
+
+
+```{r}
+freq =xtabs(~green_rating+total_dd_07Category, data = gbuild_sub)
+rent_sum =xtabs(Rent~green_rating+total_dd_07Category, data = gbuild_sub)
+avg_rent = rent_sum/freq
+avg_rent
+```
+```{r}
+freq =xtabs(~green_rating+net+util_indexCategory, data = gbuild_sub)
+rent_sum =xtabs(Rent~green_rating+net+util_indexCategory, data = gbuild_sub)
+avg_rent = rent_sum/freq
+avg_rent
+freq
+```
+
+plot(cluster_rent~util_index, data = subset(gbuild_sub,green_rating==1),col="blue")
+points(cluster_rent~util_index, data = subset(gbuild_sub,green_rating==0),col="red")
+
+plot(Rent_norm~util_index, data = subset(gbuild_sub,green_rating==1),col="blue",pch=16)
+points(Rent_norm~util_index, data = subset(gbuild_sub,green_rating==0),col="red", pch=4)
+
+
+```
+
+   
+Now lets examine rent by utility costs, after we control for some features. Let's assume the building will be class A, with median employment growth (2), roughly 250,000 sqft, and less than 10 years old.
+```{r}
+
+boxplot(Rent ~ green_rating, data = gbuild_notnet, names= c("No","Yes"),title="Non-Net Leases", xlab= "Green Rating", ylab="Rent per sqft",notch=TRUE, ylim=c(5,80))
+
+boxplot(Rent ~ green_rating, data = gbuild_net, names= c("No","Yes"),title="Net Leases", xlab= "Green Rating", ylab="Rent per sqft",notch=TRUE, ylim=c(5,80))
+
+
+boxplot(Rent ~ Electricity_CostsCategory, data = gbuild_notnet, xlab= "Electric Costs per sqft", ylab="Rent per sqft",notch=TRUE,ylim=c(5,80))
+
+boxplot(Rent ~ Gas_CostsCategory, data = gbuild_notnet, xlab= "Gas Costs per sqft", ylab="Rent per sqft",notch=TRUE,ylim=c(5,80))
+
+
+xtabs(~green_rating+net,data = gbuild_sub)
+
+```
+
+
+Conclusion - 
+
+In conclusion, we have shown how risky and unreliable the former analysts recommendations were. By not using regression to control for the other features the recommendations was wreckless.  We have attempted to isolate the effect of the green buildings outside of regression. While we weren't able to isolate the effect of green buildings completely, we believe its quite evident its highly correlated with other features that drive up rent, such as class a buildings and high employment growth cities. At a minimum we have shown that green buildings effect is not consistent throughout the data set, and that
+its unwise to generalize.
+
+
+## Bootstrapping :
+
+The value at risk and returns of each portfolio gives us a measure of how "safe" or "risky" an asset is.  
+```{r}
+suppressMessages(library(mosaic))
+suppressMessages(library(fImport))
+suppressMessages(library(foreach))
+
+mystocks = c("SPY","TLT","LQD","EEM","VNQ")
+myprices = yahooSeries(mystocks, from='2010-01-01', to='2016-07-30')
+
+
+# A helper function for calculating percent returns from a Yahoo Series
+YahooPricesToReturns = function(series) {
+	mycols = grep('Adj.Close', colnames(series))
+	closingprice = series[,mycols]
+	N = nrow(closingprice)
+	percentreturn = as.data.frame(closingprice[2:N,]) / as.data.frame(closingprice[1:(N-1),]) - 1  
+	mynames = strsplit(colnames(percentreturn), '.', fixed=TRUE)
+	mynames = lapply(mynames, function(x) return(paste0(x[1], ".PctReturn")))
+	colnames(percentreturn) = mynames
+	as.matrix(na.omit(percentreturn))
+}
+
+myreturns = YahooPricesToReturns(myprices)
+
+```
+>marshals appropriate evidence to characterize the risk/return properties of the five major asset classes listed above.
+
+We will use bootstrap sampling to calculate the returns for each asset. The code below does bootstrapping for SPY alone. Similarly we implement the code for all assets. 
+
+
+```{r}
+sim_SPY = foreach(i=1:5000, .combine='rbind') %do% {
+  totalwealth = 100000
+  n_days = 20
+  weights_even = c(1.0, 0.0, 0.0, 0.0, 0.0)
+  holdings = weights_even * totalwealth
+  wealthtracker = rep(0, n_days)
+  for(today in 1:n_days) {
+    return.today = resample(myreturns, 1, orig.ids=FALSE)
+    holdings = holdings + holdings*return.today
+    totalwealth = sum(holdings)
+    wealthtracker[today] = totalwealth
+    holdings = weights_even * totalwealth
+  }
+  wealthtracker
+}
+```
+The average returns for SPY over 20 days is 
+```{r}
+mean(sim_SPY[,n_days])
+```
+5% value at risk for SPY is : 
+```{r}
+quantile(sim_SPY[,n_days], 0.05) - 100000
+
+```
+
+>outlines your choice of the "safe" and "aggressive" portfolios.
+
+We derived a table like the one below to identify the assets as safe and aggresive based on their loss at risk and average returns. 
+
+![](return_risk_encoding.png)
+
+>uses bootstrap resampling to estimate the 4-week (20 trading day) value at risk of each of your three portfolios at the 5% level 
+
+Even split portfolio :
+```{r}
+sim_even = foreach(i=1:500, .combine='rbind') %do% {
+  totalwealth = 100000
+  n_days = 20
+  weights_even = c(0.2, 0.2, 0.2, 0.2, 0.2)
+  holdings = weights_even * totalwealth
+  wealthtracker = rep(0, n_days)
+  for(today in 1:n_days) {
+    return.today = resample(myreturns, 1, orig.ids=FALSE)
+    holdings = holdings + holdings*return.today
+    totalwealth = sum(holdings)
+    wealthtracker[today] = totalwealth
+    holdings = weights_even * totalwealth
+  }
+  wealthtracker
+}
+
+```
+Average return for even split portfolio is
+```{r}
+return_even <- mean(sim_even[,n_days])
+```
+5% value at risk for even split portfolio 
+```{r}
+risk_even <- quantile(sim_even[,n_days], 0.05) - 100000
+```
+
+Safe portfolio - 
+The safe portfolio will use the safest assets - SPY, TLT and LQD ( at least 3 classes required )The safe assets are those that have low risk. We are choosing to invest about 80% of our wealth into SPY because SPY has the highest returns among the three and has medium to low risk :
+```{r}
+sim_safe = foreach(i=1:500, .combine='rbind') %do% {
+  totalwealth = 100000
+  n_days = 20
+  weights_even = c(0.8, 0.1, 0.1, 0.0, 0.0)
+  holdings = weights_even * totalwealth
+  wealthtracker = rep(0, n_days)
+  for(today in 1:n_days) {
+    return.today = resample(myreturns, 1, orig.ids=FALSE)
+    holdings = holdings + holdings*return.today
+    totalwealth = sum(holdings)
+    wealthtracker[today] = totalwealth
+    holdings = weights_even * totalwealth
+  }
+  wealthtracker
+}
+
+```
+Average return for safe split portfolio is : 
+```{r}
+return_safe <- mean(sim_safe[,n_days])
+```
+5% value at risk for safe split portfolio : 
+```{r}
+risk_safe <- quantile(sim_safe[,n_days], 0.05) - 100000
+```
+Aggresive portfolio : In our 'Aggressive portfolio', we have chosen the assets that give the highest returns irrespective of the risk involved. EEM, VNQ are the two assets that gave us the highest returns. So, our aggressive portfolio includes EEM and VNQ. We are choosing to invest in EEM and VNQ in the ratio 3:7 because VNQ offers higher returns than EEM and we want to maximize our returns. 
+```{r}
+sim_high = foreach(i=1:500, .combine='rbind') %do% {
+  totalwealth = 100000
+  n_days = 20
+  weights_even = c(0.0, 0.0, 0.0, 0.3, 0.7)
+  holdings = weights_even * totalwealth
+  wealthtracker = rep(0, n_days)
+  for(today in 1:n_days) {
+    return.today = resample(myreturns, 1, orig.ids=FALSE)
+    holdings = holdings + holdings*return.today
+    totalwealth = sum(holdings)
+    wealthtracker[today] = totalwealth
+    holdings = weights_even * totalwealth
+  }
+  wealthtracker
+}
+
+```
+Average return for aggressive portfolio is
+```{r}
+return_aggressive <- mean(sim_high[,n_days])
+```
+5% value at risk for aggresive portfolio : 
+```{r}
+risk_aggressive <- quantile(sim_high[,n_days], 0.05) - 100000
+```
+>compares the results for each portfolio in a way that would allow the reader to make an intelligent decision among the three options.
+
+Conclusion
+
+Average returns over a 20 day period for the three portfolios : 
+
+Even : 
+```{r}
+return_even
+```
+Safe :
+```{r}
+return_safe
+```
+Aggressive : 
+```{r}
+return_aggressive
+```
+Loss at risk for the three portfolios : 
+
+Even : 
+```{r}
+risk_even
+```
+Safe : 
+```{r}
+risk_safe
+```
+Aggressive : 
+```{r}
+risk_aggressive
+```
+
+So, from the above estimations of risk and returns, if an investor is willing to be aggressive, then he stands to gain a lot in the returns and his loss at risk is also the highest among the three portfolios. 
+
+The safe portfolio does not yield higher returns than even portfolio and the loss at risk is also higher for safe portfolio as compared to the loss at risk value for even portfolio.
+
+So, it is more beneficial to invest in an even portfolio. 
+
+
+Problem 3 : 
+
+## Market segmentation
+   
+Inital Set-up and Loading the Data: 
+
+```{r} 
+# Change to required path
+
+
+library(flexclust)
+library(ggplot2)
+library(reshape2)
+library(corrplot)
+library(corrgram)
+
+
+mkt_seg = read.csv("C:/MSBA/James Scott Statistics/STA380-master/STA380-master/data/social_marketing.csv",header=T)
+str(mkt_seg)
+```
+
+From looking at the various columns in the dataset, we decided to drop the columns spam and adult since they do not give us real insights into user preferences. In addition, we also combined the columns chatter and uncategorized into one since they represent the tweets that dont fit into any category.
+
+```{r}
+mkt_seg_junk = mkt_seg[,-c(36,37)]
+mkt_seg_junk$chatter = mkt_seg_junk$uncategorized + mkt_seg_junk$chatter
+mkt_seg_junk = mkt_seg_junk[,-6] # Removing uncategorized
+
+# Without the id column
+mkt_seg_no_id = mkt_seg_junk[,-1]
+```
+
+To see if any of the variables are related, we plotted correlations. corrplot was used since it allows for easier and cleaner visualization of relationships. 
+
+```{r}
+# Looking at correlations between variables
+corr_matrix = cor(mkt_seg_no_id)
+corrplot(corr_matrix, type="lower", order="hclust")
+```
+
+From the corrplot, it seems like there are likely to be about 4-8 clusters.
+
+To find the optimal number of clusters, we implemented the Elbow method for k means clustering after scaling and centering the data.
+
+```{r}
+library(factoextra)
+library(cluster)
+library(NbClust)
+
+# scaling before clustering
+mkt_seg_scale <- scale(mkt_seg_no_id, center=TRUE, scale=TRUE) 
+
+set.seed(5)
+# Calculating wss till k=15
+k.max <- 15
+data <- mkt_seg_scale
+wss <- sapply(1:k.max, 
+        function(k){kmeans(data, k, nstart=10 )$tot.withinss})
+plot(1:k.max, wss,
+       type="b", pch = 19, frame = FALSE, 
+       xlab="Number of clusters K",
+       ylab="Total within-clusters sum of squares")
+abline(v = 8, lty =2)
+
+# Cross checking with factoextra package
+fviz_nbclust(data, kmeans, method = "wss")
+```
+
+From the plots, the optimal number of clusters is 8. We chose 8 since it minimises wss to an acceptable value and will not have too many clusters that will it hard to interpret. We will use k means clustering with 8 clusters.
+
+```{r}
+
+# K-means clustering
+set.seed(10)
+km_seg <- kmeans(mkt_seg_scale, 8, nstart = 30)
+
+# k-means group number of each observation
+clust_obs <- km_seg$cluster
+table(clust_obs)
+
+# Visualize k-means clusters
+fviz_cluster(km_seg, data = mkt_seg_scale, geom = "point",
+             stand = FALSE, frame.type = "norm")
+
+# Identifying where the centers of the clusters are
+clusters_cent = km_seg$centers
+imp_fact = t(clusters_cent)
+
+# Separating by cluster and only taking important features
+cluster_1 = imp_fact[which(abs(imp_fact[,1])>=0.4),1]
+cluster_2 = imp_fact[which(abs(imp_fact[,2])>=0.4),2]
+cluster_3 = imp_fact[which(abs(imp_fact[,3])>=0.4),3]
+names(cluster_3) = c("photo_sharing") # since only 1 variable
+cluster_4 = imp_fact[which(abs(imp_fact[,4])>=0.4),4]
+cluster_5 = imp_fact[which(abs(imp_fact[,5])>=0.4),5]
+cluster_6 = imp_fact[which(abs(imp_fact[,6])>=0.4),6]
+cluster_7 = imp_fact[which(abs(imp_fact[,7])>=0.4),7]
+cluster_8 = imp_fact[which(abs(imp_fact[,8])>=0.4),8]
+
+# Seeing how the clusters turned out
+cluster_1
+cluster_2
+cluster_3
+cluster_4
+cluster_5
+cluster_6
+cluster_7
+cluster_8
+```
+
+From the above results, we can drop cluster 3 since it has only 1 category and cluster 7 already has similar features.
+
+Now, plotting important features of each cluster in a wordcloud.
+
+```{r}
+par(mfrow=c(1,1))
+library(wordcloud)
+
+for (i in c(1,2,4,5,6,7,8)) { # skipping cluster 3
+wordcloud(colnames(mkt_seg_scale), km_seg$centers[i,], min.freq=0, max.words=100, scale=c(3,.5))
+}
+```
+
+From the clusters obtained, the market segments obtained are the following:  
+Cluster 1 - Health conscious users  
+Cluster 2 - Users with more (stereotypical) masculine interests  
+Cluster 3 - Youngsters (Cluster 3 was dropped and numbers of all others were changed accordingly)  
+Cluster 4 - Businessmen/Business women  
+Cluster 5 - Family oriented users  
+Cluster 6 - Users with more (stereotypical) feminine interests  
+Cluster 7 - Miscellaneous  
+
+These market segments are valuable to NutrientH20 because they now have a better understanding of their customer base by getting a fair idea of what age groups their customers are in, what phase of life they are going through and their hobbies/interests. They can tune their messaging strategy to have customized messages and promotions going out to people based on these interests.
